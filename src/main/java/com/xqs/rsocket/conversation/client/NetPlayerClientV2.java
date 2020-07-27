@@ -9,6 +9,7 @@ import io.rsocket.core.RSocketConnector;
 import io.rsocket.frame.decoder.PayloadDecoder;
 import io.rsocket.transport.netty.client.TcpClientTransport;
 import io.rsocket.util.DefaultPayload;
+import reactor.core.publisher.Flux;
 
 /**
  * 使用rsocket-java和audio api实现的网络播放器客户端v1
@@ -17,7 +18,7 @@ import io.rsocket.util.DefaultPayload;
  *
  */
 public class NetPlayerClientV2 {
-	public static final String SERVER_ADDRESS = "172.25.44.161";
+	public static final String SERVER_ADDRESS = "192.168.0.101";
 	public static final int SERVER_PORT = 11111;
 	public static void main(String[] args) {
 		new Thread(() -> {
@@ -47,7 +48,8 @@ public class NetPlayerClientV2 {
 
 		// 创建一个rsocket，使用Request-Channel通信模式，因为我们要持续发送从话筒收到的音频流
 		clientRSocket
-		.requestStream(DefaultPayload.create("hello")).take(10000)
+		.requestChannel(Flux.just("hello","world").map(DefaultPayload::create))
+		.take(Integer.MAX_VALUE)
 		.doOnNext(
 				// 每当有输入的音频字节流进来就播放
 				p -> {

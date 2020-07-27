@@ -1,9 +1,11 @@
 package com.xqs.rsocket.conversation.server;
 
-import java.io.File;
-
-import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.TargetDataLine;
+
+import org.reactivestreams.Publisher;
 
 import io.rsocket.AbstractRSocket;
 import io.rsocket.Payload;
@@ -22,8 +24,9 @@ import reactor.core.publisher.Mono;
  */
 @SuppressWarnings("deprecation")
 public class NetPlayerServerV2 {
-	public static final String SERVER_ADDRESS = "172.25.44.161";
+	public static final String SERVER_ADDRESS = "192.168.0.101";
 	public static final int SERVER_PORT = 11111;
+
 	public static void main(String[] args) throws Exception {
 		new Thread(() -> {
 			try {
@@ -33,28 +36,37 @@ public class NetPlayerServerV2 {
 			}
 		}).start();
 	}
+
 	private static void server() throws Exception {
 		// 服务器：收到客户端建连请求后，从音频文件中获取字节流，发送给客户端
 		// TODO: 改成相对地址，资源目前放在src/main/resources目录下
-		File file = new File("E:/ycr_learnspace/rsocket-java/src/resources/LYNC_ringback.wav");
-		AudioInputStream ais = AudioSystem.getAudioInputStream(file);
+		AudioFormat audioFormat = 
+				new AudioFormat(
+						AudioFormat.Encoding.PCM_SIGNED,
+						48000,
+						16,
+						2,
+						4,
+						48000,
+						false);
+		DataLine.Info info = new DataLine.Info(TargetDataLine.class, audioFormat);
+		TargetDataLine td = (TargetDataLine) AudioSystem.getLine(info);
+		td.open();
+		td.start();
+		
 		RSocketServer
 		.create(
 				// 收到client请求连接的报文后，对于Request-Stream通信模式的请求的处理逻辑
 				(setup, sendingSocket) -> Mono.just(new AbstractRSocket() {
 
 					@Override
-					public Flux<Payload> requestStream(Payload payload) {
-						// 打印客户端的请求报文
-						System.out.println(payload.getDataUtf8());
-						
-						// 输出一个音频字节流
+					public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
 						Flux<Payload> flux = Flux.generate(sink -> {
 							try {
 								int bytesRead = 0;
 								byte[] buffer = new byte[1024];
-								bytesRead = ais.read(buffer, 0, buffer.length);
-								if (bytesRead <= 0) {
+								bytesRead = td.read(buffer, 0, buffer.length);
+								if(bytesRead <= 0) {
 									sink.complete();
 								}
 								sink.next(DefaultPayload.create(buffer));
@@ -66,7 +78,6 @@ public class NetPlayerServerV2 {
 						});
 						return flux;
 					}
-
 				}))
 				.payloadDecoder(PayloadDecoder.ZERO_COPY)
 				.bind(TcpServerTransport.create(SERVER_ADDRESS, SERVER_PORT))

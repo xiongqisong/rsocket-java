@@ -16,11 +16,11 @@ public class RecordAudio {
 		AudioFormat audioFormat = 
 				new AudioFormat(
 						AudioFormat.Encoding.PCM_SIGNED, 
-						44100,
+						48000,
 						16, 
 						2,
 						4,
-						44100,
+						48000,
 						false);
 		DataLine.Info info = new DataLine.Info(TargetDataLine.class, audioFormat);
 		TargetDataLine td = (TargetDataLine) AudioSystem.getLine(info);
